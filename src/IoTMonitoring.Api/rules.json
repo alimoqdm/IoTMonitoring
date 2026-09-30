@@ -1,0 +1,38 @@
+[
+  {
+    "id": "rule-001",
+    "name": "Overheating Sustained",
+    "deviceId": "PUMP-01",
+    "metric": "temperature",
+    "operator": "SustainedAbove",
+    "threshold": 68.0,
+    "durationSeconds": 30,
+    "enabled": true
+  },
+  {
+    "id": "rule-002",
+    "name": "High Pressure All Devices",
+    "metric": "pressure",
+    "operator": "GreaterThan",
+    "threshold": 10.0,
+    "enabled": true
+  },
+  {
+    "id": "rule-003",
+    "name": "Normal Vibration Range FAN-03",
+    "deviceId": "FAN-03",
+    "metric": "vibration",
+    "operator": "Between",
+    "minThreshold": 1.0,
+    "maxThreshold": 5.0,
+    "enabled": true
+  },
+  {
+    "id": "rule-004",
+    "name": "Disabled Low Temperature",
+    "metric": "temperature",
+    "operator": "LessThan",
+    "threshold": 50.0,
+    "enabled": false
+  }
+]
