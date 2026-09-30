@@ -10,7 +10,6 @@ namespace IoTMonitoring.Domain.RuleEngine
     {
         private readonly Dictionary<string, IRuleOperatorStrategy> _strategies;
 
-        // در معماری واقعی این کلاس‌ها از طریق Dependency Injection رجیستر و پاس داده می‌شوند
         public RuleOperatorFactory(IEnumerable<IRuleOperatorStrategy> strategies)
         {
             _strategies = strategies.ToDictionary(s => s.OperatorName, s => s, StringComparer.OrdinalIgnoreCase);

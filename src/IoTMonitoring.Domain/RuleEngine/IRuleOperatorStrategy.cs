@@ -11,7 +11,6 @@ namespace IoTMonitoring.Domain.RuleEngine
     {
         string OperatorName { get; }
 
-        // داده‌های ورودی حتماً باید بر اساس (DeviceId, Metric) گروه‌بندی شده و بر اساس زمان (Ts) مرتب شده باشند
         RuleEvaluationResult Evaluate(IReadOnlyList<SensorReading> sortedReadings, RuleDefinition rule);
     }
 }

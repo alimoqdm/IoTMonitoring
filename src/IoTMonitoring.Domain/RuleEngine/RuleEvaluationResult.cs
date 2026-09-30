@@ -7,7 +7,6 @@ using System.Threading.Tasks;
 
 namespace IoTMonitoring.Domain.RuleEngine
 {
-    // خروجی اجرای یک قانون روی مجموعه‌ای از داده‌ها
     public class RuleEvaluationResult
     {
         public List<ReadingViolation> Violations { get; } = new();

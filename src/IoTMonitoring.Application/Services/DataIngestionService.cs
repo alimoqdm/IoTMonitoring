@@ -30,10 +30,9 @@ namespace IoTMonitoring.Application.Services
 
                 try
                 {
-                    // اگر تاریخ یا عدد نامعتبر باشد، اکپسشن JsonException رخ می‌دهد
+                    // Deserialize into a nullable DTO to safely evaluate missing or structurally valid but semantically dirty fields
                     var dto = JsonSerializer.Deserialize<SensorReadingDto>(line, jsonOptions);
 
-                    // بررسی فیلدهای اجباری و مقادیر خالی
                     if (dto == null ||
                         string.IsNullOrWhiteSpace(dto.DeviceId) ||
                         string.IsNullOrWhiteSpace(dto.Metric) ||
@@ -58,7 +57,6 @@ namespace IoTMonitoring.Application.Services
                 }
                 catch (JsonException)
                 {
-                    // رکوردهای حاوی NaN یا تاریخ نامعتبر به اینجا می‌رسند
                     report.InvalidRecords++;
                 }
             }

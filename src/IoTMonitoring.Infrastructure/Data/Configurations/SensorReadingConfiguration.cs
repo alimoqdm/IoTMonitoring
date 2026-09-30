@@ -15,7 +15,7 @@ namespace IoTMonitoring.Infrastructure.Data.Configurations
         {
             builder.HasKey(x => x.Id); 
 
-            // پیاده‌سازی Idempotency Requirement در سطح دیتابیس
+            // Idempotency Requirement
             builder.HasIndex(x => new { x.DeviceId, x.Metric, x.Ts, x.Seq })
                    .IsUnique()
                    .HasDatabaseName("IX_Unique_SensorReading");

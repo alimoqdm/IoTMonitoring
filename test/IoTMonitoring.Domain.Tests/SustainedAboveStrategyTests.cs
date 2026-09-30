@@ -34,10 +34,14 @@ namespace IoTMonitoring.Domain.Tests
             var result = strategy.Evaluate(readings, rule);
 
             // Assert
-            Assert.Single(result.Alerts); // دقیقاً باید یک هشدار تولید شده باشد
+
+            // Ensures exactly one alert is generated for the continuous episode (prevents duplicate alert bugs)
+            Assert.Single(result.Alerts); 
             Assert.Equal("rule-001", result.Alerts[0].RuleId);
-            Assert.Equal(baseTs, result.Alerts[0].StartTs); // زمان شروع هشدار
-            Assert.Equal(baseTs.AddSeconds(30), result.Alerts[0].EndTs); // زمان پایان هشدار روی آخرین رکورد بالای حد مجاز
+            Assert.Equal(baseTs, result.Alerts[0].StartTs); 
+
+            // Validates that the alert's end time is locked to the last invalid reading (T+30s), ignoring the valid T+40s reading
+            Assert.Equal(baseTs.AddSeconds(30), result.Alerts[0].EndTs); 
         }
     }
 }

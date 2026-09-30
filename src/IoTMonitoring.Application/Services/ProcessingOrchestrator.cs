@@ -17,7 +17,6 @@ namespace IoTMonitoring.Application.Services
         private readonly ISensorReadingRepository _sensorRepository;
         private readonly IAlertRepository _alertRepository;
 
-        // تزریق ریپازیتوری‌ها
         public ProcessingOrchestrator(
             RuleOperatorFactory ruleFactory,
             ISensorReadingRepository sensorRepository,
@@ -33,6 +32,7 @@ namespace IoTMonitoring.Application.Services
             var uniqueReadings = new List<SensorReading>();
             var seenKeys = new HashSet<(string, string, DateTime, int)>();
 
+            // Enforces the "First-wins" deduplication policy in-memory
             foreach (var reading in rawReadings)
             {
                 if (seenKeys.Add((reading.DeviceId, reading.Metric, reading.Ts, reading.Seq)))
@@ -50,8 +50,10 @@ namespace IoTMonitoring.Application.Services
             var generatedAlerts = new List<Alert>();
             var allViolations = new List<ReadingViolation>();
 
+            // Tracks the end timestamp of the last generated alert for cooldown enforcement
             var lastAlertEndTimes = new Dictionary<string, DateTime>();
 
+            // Implements the "Sort then Scan" batching approach to handle out-of-order data
             var groupedReadings = uniqueReadings
                 .GroupBy(r => new { r.DeviceId, r.Metric })
                 .Select(g => g.OrderBy(r => r.Ts).ToList())
@@ -81,6 +83,7 @@ namespace IoTMonitoring.Application.Services
                         allViolations.Add(violation);
                     }
 
+                    // Enforces domain-level alert deduplication (5-minute cooldown period)
                     foreach (var alert in result.Alerts.OrderBy(a => a.StartTs))
                     {
                         string cooldownKey = $"{alert.RuleId}_{alert.DeviceId}_{alert.Metric}";
@@ -117,7 +120,6 @@ namespace IoTMonitoring.Application.Services
             report.UnacceptableReadings = unacceptableReadings.Count;
             report.AlertsGenerated = generatedAlerts.Count;
 
-            // فراخوانی ریپازیتوری‌ها برای ذخیره داده‌ها به صورت امن (Idempotent)
             await _sensorRepository.SaveProcessedDataAsync(acceptableReadings, unacceptableReadings, allViolations);
             await _alertRepository.SaveAlertsIdempotentAsync(generatedAlerts);
 

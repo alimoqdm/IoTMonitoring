@@ -15,7 +15,6 @@ namespace IoTMonitoring.Infrastructure.Data.Configurations
         {
             builder.HasKey(x => x.Id);
 
-            // جلوگیری از ثبت هشدار تکراری برای یک رویداد یکسان
             builder.HasIndex(x => new { x.RuleId, x.DeviceId, x.Metric, x.StartTs })
                    .IsUnique()
                    .HasDatabaseName("IX_Unique_Alert");

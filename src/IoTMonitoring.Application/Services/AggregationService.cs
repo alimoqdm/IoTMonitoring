@@ -25,6 +25,7 @@ namespace IoTMonitoring.Application.Services
             if (!readings.Any())
                 return new List<AggregationResult>();
 
+            // Converts the requested bucket window (e.g., 300 seconds) into C# Ticks (100-nanosecond intervals)
             long ticksPerBucket = TimeSpan.FromSeconds(bucketSizeSeconds).Ticks;
 
             var aggregatedData = readings

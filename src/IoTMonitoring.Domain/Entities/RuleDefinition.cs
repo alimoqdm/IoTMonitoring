@@ -10,7 +10,9 @@ namespace IoTMonitoring.Domain.Entities
     {
         public string Id { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-        public string? DeviceId { get; set; } // نال بودن به معنای اعمال روی همه دستگاه‌هاست
+
+        // Null indicates the rule applies universally to all devices carrying the specified metric.
+        public string? DeviceId { get; set; }
         public string Metric { get; set; } = string.Empty;
         public string Operator { get; set; } = string.Empty;
         public decimal? Threshold { get; set; }

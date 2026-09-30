@@ -31,9 +31,14 @@ namespace IoTMonitoring.Application.Tests
 
             var rawReadings = new List<SensorReading>
             {
-                new SensorReading { DeviceId = "P1", Metric = "temp", Ts = baseTs.AddMinutes(5), Seq = 2, Value = 10 }, // داده‌ای که در آینده آمده اما اول خوانده شده (Out-of-order)
-                new SensorReading { DeviceId = "P1", Metric = "temp", Ts = baseTs, Seq = 1, Value = 10 },               // داده اصلی که باید اول می‌بود
-                new SensorReading { DeviceId = "P1", Metric = "temp", Ts = baseTs, Seq = 1, Value = 10 }                // داده دقیقاً تکراری (Duplicate)
+                // Read first, but its time is in the future (Out-of-order)
+                new SensorReading { DeviceId = "P1", Metric = "temp", Ts = baseTs.AddMinutes(5), Seq = 2, Value = 10 }, 
+
+                // Read second, but this is the actual starting time
+                new SensorReading { DeviceId = "P1", Metric = "temp", Ts = baseTs, Seq = 1, Value = 10 },    
+                
+                // Exact duplicate of the second reading
+                new SensorReading { DeviceId = "P1", Metric = "temp", Ts = baseTs, Seq = 1, Value = 10 }              
             };
 
             var report = new ProcessingReport();
@@ -42,10 +47,14 @@ namespace IoTMonitoring.Application.Tests
             var result = await orchestrator.ProcessDataAsync(rawReadings, new List<RuleDefinition>(), report);
 
             // Assert
-            Assert.Equal(1, result.DuplicatesRemoved);
-            Assert.Equal(2, result.AcceptableReadings); // فقط دو رکورد یکتا باقی مانده است
 
-            // 2. بررسی فراخوانی ریپازیتوری با دقیقاً 2 رکورد مرتب شده
+            // Check if the duplicate was successfully removed
+            Assert.Equal(1, result.DuplicatesRemoved);
+
+            // Check if exactly 2 unique readings are left
+            Assert.Equal(2, result.AcceptableReadings);
+
+            // Check if the save method was called exactly once with the 2 cleaned items
             mockSensorRepo.Verify(r => r.SaveProcessedDataAsync(
                 It.Is<List<SensorReading>>(list => list.Count == 2),
                 It.IsAny<List<SensorReading>>(),

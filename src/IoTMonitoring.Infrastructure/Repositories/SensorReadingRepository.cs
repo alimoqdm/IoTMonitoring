@@ -27,6 +27,7 @@ namespace IoTMonitoring.Infrastructure.Repositories
             var allReadings = acceptableReadings.Concat(unacceptableReadings).ToList();
             if (!allReadings.Any()) return;
 
+            // Defines a query bounding box (time range and involved devices) to drastically narrow down the database scan
             var minTs = allReadings.Min(r => r.Ts);
             var maxTs = allReadings.Max(r => r.Ts);
             var deviceIds = allReadings.Select(r => r.DeviceId).Distinct().ToList();
@@ -36,6 +37,7 @@ namespace IoTMonitoring.Infrastructure.Repositories
                 .Select(r => new { r.DeviceId, r.Metric, r.Ts, r.Seq })
                 .ToListAsync();
 
+            // O(1) lookup table for extremely fast duplicate checking in memory
             var existingKeysSet = new HashSet<(string, string, System.DateTime, int)>(
                 existingKeys.Select(k => (k.DeviceId, k.Metric, k.Ts, k.Seq))
             );
@@ -48,7 +50,6 @@ namespace IoTMonitoring.Infrastructure.Repositories
                 .Where(r => !existingKeysSet.Contains((r.DeviceId, r.Metric, r.Ts, r.Seq)))
                 .ToList();
 
-            // اعمال وضعیت Acceptable/Unacceptable به صورت واقعی
             newAcceptable.ForEach(r => r.IsAcceptable = true);
             newUnacceptable.ForEach(r => r.IsAcceptable = false);
 
