@@ -1,30 +1,48 @@
-# IoT Sensor Ingestion & Stateful Rule Engine
+# IoT Sensor Monitoring & Stateful Rule Engine
 
-## 📌 Executive Summary
-This project implements a backend service for ingesting, cleaning, and evaluating IoT sensor data. It features a custom Rule Engine capable of handling stateful evaluations (`SustainedAbove`) and includes an aggregation API. The system is built using **.NET 8** and **SQLite**, strictly following **Clean Architecture** principles.
+A lightweight, robust backend service designed to ingest messy sensor data, evaluate stateful rules, generate alerts, and provide time-based aggregations. 
 
-## 🏗️ Architecture & Design Decisions
-- **Clean Architecture:** The solution is divided into `Domain`, `Application`, `Infrastructure`, and `Api` layers. The core business logic (Validation, Rule Applicability, Rule Evaluation, Alerting) resides purely in the `Domain` and `Application` layers, completely independent of the database or web frameworks.
-- **Data Ingestion:** Implemented via a streaming read (`StreamReader`) to handle large files efficiently without memory limits. Messy data (malformed JSON, invalid types like "NaN", missing required fields) are caught gracefully using `try-catch` blocks and validation checks, counting them as `InvalidRecords` without crashing the app.
-- **Rule Engine (Strategy Pattern):** Extensibility is achieved using the **Strategy Pattern**. New operators can be added by simply creating a new class implementing `IRuleOperatorStrategy` without modifying the core engine logic (Open/Closed Principle).
+## How to Run and Test
 
-## ⚙️ Messy Data, Out-of-Order & Deduplication
-- **Deduplication:** A **"First-wins"** policy is enforced in memory using a `HashSet` based on the composite key `(deviceId, metric, ts, seq)`.
-- **Out-of-Order Handling (Sort then Scan):** To correctly evaluate stateful rules on out-of-order data, the engine groups readings by `(DeviceId, Metric)` and explicitly sorts them by timestamp (`Ts`) before passing them to the Rule Operators. This guarantees predictable event-time windowing.
+**Prerequisites:** .NET 9 SDK
 
-## 🚨 Stateful Operator (`SustainedAbove`) & Alerting
-- **State Management:** The `SustainedAboveStrategy` scans the chronologically sorted readings, explicitly tracking `episodeStartTs`. The window begins when the threshold is crossed and ends when the value drops below it (or the stream ends).
-- **Cooldown Policy:** Alerts are deduplicated at the domain level. If an alert is generated for a `(Rule, Device, Metric)`, subsequent violations within a **5-minute window** from the `EndTs` of the previous alert are ignored.
+To run the application and start the ingestion process:
 
-## 🛡️ Idempotent Processing
-Processing the same `readings.jsonl` multiple times will not duplicate readings, violations, or alerts.
-- **Database Level:** Composite Unique Indexes are configured in EF Core (`IX_Unique_SensorReading` and `IX_Unique_Alert`).
-- **Application Level (Delta Check):** During batch inserts, the repository fetches existing keys within the timestamp range and filters out duplicates before calling `AddRangeAsync`.
+    dotnet run --project src/IoTMonitoring.Api
 
-## 📊 Aggregation API
-- **Endpoint:** `GET /api/aggregation`
-- Fetches strictly `Acceptable` readings using `.AsNoTracking()` for high performance.
-- Aggregates metrics into requested time buckets (`bucketSizeSeconds`) in-memory. Empty buckets are intentionally omitted to keep the payload clean and meaningful.
+Once the application is running, the Aggregation API is accessible via Swagger at:
+- HTTPS: https://localhost:7165/swagger
+- HTTP: http://localhost:5186/swagger
 
-## 🤖 AI Usage Disclosure
-* AI Assistance: Google Gemini was used as a pair-programming thought partner to brainstorm architectural structure (Clean Architecture layers), refine the Strategy Pattern for the Rule Engine, and optimize EF Core's idempotent insert logic.
+To run the test suite:
+
+    dotnet test
+
+## Architecture & Design Decisions
+The project is built using **Clean Architecture**. The core business logic (validation, deduplication, stateful rules, classification) lives entirely in the `Domain` and `Application` layers. This ensures the engine remains completely agnostic of the database or HTTP framework. 
+
+**Storage Trade-off:** I chose **SQLite** because it is perfect for a self-contained, portable service. While it sacrifices the high concurrency of dedicated databases like PostgreSQL, it provides a zero-setup experience for reviewers and fits the bounded scope of this task perfectly.
+
+## Messy Data & Idempotency
+* **Duplicate Policy (First-wins):** When a reading has the exact same (deviceId, metric, ts, seq) as another, the first one encountered is kept, and subsequent ones are rejected as duplicates. I used an in-memory `HashSet` for O(1) lookup speed.
+* **Idempotent Re-runs:** Processing the same `readings.jsonl` file multiple times is perfectly safe. Before persisting, the system performs a "delta check" by fetching existing keys within a bounding-box time range, filtering out what has already been stored.
+
+## Rule Engine & SustainedAbove Strategy
+Rules are loaded as seed data from `rules.json` at startup. The engine utilizes the **Strategy Pattern**, making it highly extensible. Adding a new operator strictly adheres to the Open/Closed Principle: simply create a new class implementing `IRuleOperatorStrategy`.
+
+**Handling Out-of-Order Data (Trade-off):**
+For the stateful `SustainedAbove` rule, I chose the **"Batch (Sort then Scan)"** approach over a streaming state machine.
+* *Why?* While it consumes slightly more memory to group and sort readings chronologically per device/metric, it drastically reduces code complexity and guarantees 100% predictable event-time evaluation for late or out-of-order arrivals.
+* The engine tracks `episodeStartTs`. The violation window starts when the metric crosses the threshold and ends as soon as it drops back below it.
+
+## Alerting & Cooldown Policy
+* A sustained rule violation produces a single Domain Alert with exact `StartTs` and `EndTs` boundaries, mapping one real-world episode to one alert.
+* **Cooldown Deduplication:** I enforced a 5-minute cooldown policy at the domain level. If a new alert for the same (Rule, Device, Metric) occurs within 5 minutes of the previous alert's end time, it is intentionally ignored to prevent alert fatigue.
+
+## Aggregation API
+* The `/api/aggregation` endpoint strictly aggregates **Acceptable** readings. Invalid or rule-violating readings are excluded from the statistics.
+* **Bucketing Trade-off:** Instead of writing complex, database-specific SQL queries (which SQLite struggles with for time-bucketing), I used an integer division trick on C# `Ticks` to snap timestamps into exact buckets in-memory. This offloads work to the application layer but ensures blazing-fast, cross-database compatible bucketing.
+* **Empty Buckets:** By using `GroupBy` on the existing data stream, time windows with no data are naturally omitted from the response.
+
+## AI Usage Disclosure
+I did not use any autonomous coding agents (such as Claude, Cursor, or Copilot Workspace) to write the logic for me. I solely used Google Gemini as an interactive pair-programming thought partner to discuss Clean Architecture boundaries, brainstorm the C# Ticks integer division trick for time-bucketing, and review edge cases for my unit tests.
